@@ -1,0 +1,116 @@
+{
+  "name": "pain-language",
+  "displayName": "Pain Language",
+  "description": "Language support for Pain programming language - syntax highlighting, LSP integration, diagnostics, and more",
+  "version": "0.2.0",
+  "publisher": "pain-lng",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "pain",
+    "programming",
+    "language",
+    "lsp",
+    "syntax"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pain-lng/pain-vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/pain-lng/pain-vscode/issues"
+  },
+  "homepage": "https://github.com/pain-lng/pain",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#4A90E2",
+    "theme": "dark"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "pain",
+        "aliases": [
+          "Pain",
+          "pain"
+        ],
+        "extensions": [
+          ".pain"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "documentFormattingEditProvider": {
+      "documentSelector": [
+        {
+          "language": "pain"
+        }
+      ]
+    },
+    "documentRangeFormattingEditProvider": {
+      "documentSelector": [
+        {
+          "language": "pain"
+        }
+      ]
+    },
+    "grammars": [
+      {
+        "language": "pain",
+        "scopeName": "source.pain",
+        "path": "./syntaxes/pain.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Pain Language",
+      "properties": {
+        "pain.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Pain LSP server executable (leave empty for auto-detection)"
+        },
+        "pain.format.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable format on save"
+        },
+        "pain.lsp.trace": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "pain.formatDocument",
+        "title": "Format Document",
+        "category": "Pain"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0",
+    "punycode": "^2.3.1"
+  },
+  "overrides": {
+    "punycode": "^2.3.1"
+  }
+}
