@@ -104,8 +104,8 @@
         },
         "pain.format.enable": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable format on save"
+          "default": false,
+          "description": "Enable format on save (disabled by default to prevent performance issues)"
         },
         "pain.lsp.trace": {
           "type": "string",

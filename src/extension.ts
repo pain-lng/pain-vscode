@@ -14,6 +14,7 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
+let isFormatting = false; // Prevent concurrent formatting calls
 
 export function activate(context: vscode.ExtensionContext) {
     try {
@@ -87,6 +88,11 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Register format document command
         const formatCommand = vscode.commands.registerCommand('pain.formatDocument', async () => {
+            // Prevent concurrent formatting calls
+            if (isFormatting) {
+                return;
+            }
+
             const editor = vscode.window.activeTextEditor;
             if (!editor || editor.document.languageId !== 'pain') {
                 return;
@@ -118,6 +124,8 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Create temporary file for formatting
             const tempFile = path.join(path.dirname(document.uri.fsPath), '.pain_format_temp.pain');
+            isFormatting = true;
+            
             try {
                 fs.writeFileSync(tempFile, text);
                 
@@ -132,6 +140,20 @@ export function activate(context: vscode.ExtensionContext) {
                 
                 let stdout = '';
                 let stderr = '';
+                let timeoutId: NodeJS.Timeout | null = null;
+                
+                // Set timeout for formatting (5 seconds)
+                timeoutId = setTimeout(() => {
+                    if (!formatter.killed) {
+                        formatter.kill();
+                        isFormatting = false;
+                        vscode.window.showErrorMessage('Formatting timed out after 5 seconds');
+                        // Clean up temp file
+                        if (fs.existsSync(tempFile)) {
+                            fs.unlinkSync(tempFile);
+                        }
+                    }
+                }, 5000);
                 
                 formatter.stdout.on('data', (data) => {
                     stdout += data.toString();
@@ -142,6 +164,10 @@ export function activate(context: vscode.ExtensionContext) {
                 });
                 
                 formatter.on('error', (error: any) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+                    isFormatting = false;
                     vscode.window.showErrorMessage(`Formatting failed: ${error.message}`);
                     // Clean up temp file on error
                     if (fs.existsSync(tempFile)) {
@@ -150,6 +176,11 @@ export function activate(context: vscode.ExtensionContext) {
                 });
                 
                 formatter.on('close', (code) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+                    isFormatting = false;
+                    
                     // Clean up temp file
                     if (fs.existsSync(tempFile)) {
                         fs.unlinkSync(tempFile);
@@ -161,7 +192,7 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                     
                     if (stderr) {
-                        vscode.window.showWarningMessage(`Formatting warning: ${stderr}`);
+                        console.warn('Formatting warning:', stderr);
                     }
                     
                     // Apply formatted text
@@ -174,6 +205,7 @@ export function activate(context: vscode.ExtensionContext) {
                     vscode.workspace.applyEdit(edit);
                 });
             } catch (error: any) {
+                isFormatting = false;
                 vscode.window.showErrorMessage(`Formatting failed: ${error.message}`);
                 // Clean up temp file on error
                 if (fs.existsSync(tempFile)) {
@@ -220,13 +252,9 @@ export function activate(context: vscode.ExtensionContext) {
             // Register document formatting provider (can be registered before client starts)
             const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider('pain', {
                 async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
-                    try {
-                        await vscode.commands.executeCommand('pain.formatDocument');
-                        return [];
-                    } catch (error) {
-                        console.error('Formatting failed:', error);
-                        return [];
-                    }
+                    // Don't use formatDocument command here to avoid double calls
+                    // Return empty array - formatting is handled by the command
+                    return [];
                 }
             });
             context.subscriptions.push(formattingProvider);
