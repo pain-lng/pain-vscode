@@ -52,41 +52,12 @@ export function activate(context: vscode.ExtensionContext) {
                         lspPath = releasePathExe;
                     } else if (fs.existsSync(releasePath)) {
                         lspPath = releasePath;
-                    } else {
-                        // Fallback to 'pain-lsp' in PATH
-                        lspPath = 'pain-lsp';
                     }
                 }
-            } else {
-                // No workspace open, use PATH fallback
-                lspPath = 'pain-lsp';
             }
         }
 
-        // Server options - run LSP server
-        const serverOptions: ServerOptions = {
-            run: { command: lspPath, transport: TransportKind.stdio },
-            debug: { command: lspPath, transport: TransportKind.stdio }
-        };
-
-        // Get trace configuration
-        const config = vscode.workspace.getConfiguration('pain');
-        const trace = config.get<string>('lsp.trace', 'off') as 'off' | 'messages' | 'verbose';
-
-        // Client options
-        const clientOptions: LanguageClientOptions = {
-            documentSelector: [{ scheme: 'file', language: 'pain' }],
-            synchronize: {
-                // Only create file watcher if workspace is available
-                fileEvents: workspaceFolders && workspaceFolders.length > 0
-                    ? vscode.workspace.createFileSystemWatcher('**/*.pain')
-                    : undefined
-            },
-            traceOutputChannel: trace !== 'off' ? vscode.window.createOutputChannel('Pain Language Server') : undefined,
-            outputChannel: vscode.window.createOutputChannel('Pain Language Server')
-        };
-
-        // Register format document command
+        // Register format document command (always available, even without LSP)
         const formatCommand = vscode.commands.registerCommand('pain.formatDocument', async () => {
             // Prevent concurrent formatting calls
             if (isFormatting) {
@@ -223,7 +194,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const config = vscode.workspace.getConfiguration('pain');
-            const formatOnSaveEnabled = config.get<boolean>('format.enable', true);
+            const formatOnSaveEnabled = config.get<boolean>('format.enable', false);
 
             if (!formatOnSaveEnabled) {
                 return;
@@ -240,43 +211,85 @@ export function activate(context: vscode.ExtensionContext) {
 
         context.subscriptions.push(formatOnSave);
 
-        // Create and start the client
-        try {
-            client = new LanguageClient(
-                'painLanguageServer',
-                'Pain Language Server',
-                serverOptions,
-                clientOptions
-            );
-
-            // Register document formatting provider (can be registered before client starts)
-            const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider('pain', {
-                async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
-                    // Don't use formatDocument command here to avoid double calls
-                    // Return empty array - formatting is handled by the command
-                    return [];
-                }
-            });
-            context.subscriptions.push(formattingProvider);
-
-            // Start the client
-            client.start().then(() => {
-                console.log('Pain Language Server is ready');
-            }).catch((error) => {
-                console.error('Failed to start Pain Language Server:', error);
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                // Don't show error for NoWorkspaceUriError if no workspace is open (expected behavior)
-                if (!errorMessage.includes('NoWorkspaceUriError') || (workspaceFolders && workspaceFolders.length > 0)) {
-                    vscode.window.showErrorMessage(`Failed to start Pain Language Server: ${errorMessage}`);
-                }
-            });
-        } catch (error) {
-            console.error('Failed to create Language Client:', error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            // Don't show error for NoWorkspaceUriError if no workspace is open (expected behavior)
-            if (!errorMessage.includes('NoWorkspaceUriError') || (workspaceFolders && workspaceFolders.length > 0)) {
-                vscode.window.showErrorMessage(`Failed to create Language Client: ${errorMessage}`);
+        // Register document formatting provider (can be registered before client starts)
+        const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider('pain', {
+            async provideDocumentFormattingEdits(document: vscode.TextDocument): Promise<vscode.TextEdit[]> {
+                // Don't use formatDocument command here to avoid double calls
+                // Return empty array - formatting is handled by the command
+                return [];
             }
+        });
+        context.subscriptions.push(formattingProvider);
+
+        // Only start LSP if binary exists or is explicitly configured
+        // Don't try to run 'pain-lsp' from PATH as it may not exist and cause hangs
+        if (lspPath && (fs.existsSync(lspPath) || path.isAbsolute(lspPath))) {
+            try {
+                // Server options - run LSP server
+                const serverOptions: ServerOptions = {
+                    run: { command: lspPath, transport: TransportKind.stdio },
+                    debug: { command: lspPath, transport: TransportKind.stdio }
+                };
+
+                // Get trace configuration
+                const config = vscode.workspace.getConfiguration('pain');
+                const trace = config.get<string>('lsp.trace', 'off') as 'off' | 'messages' | 'verbose';
+
+                // Client options
+                const clientOptions: LanguageClientOptions = {
+                    documentSelector: [{ scheme: 'file', language: 'pain' }],
+                    synchronize: {
+                        // Only create file watcher if workspace is available
+                        fileEvents: workspaceFolders && workspaceFolders.length > 0
+                            ? vscode.workspace.createFileSystemWatcher('**/*.pain')
+                            : undefined
+                    },
+                    traceOutputChannel: trace !== 'off' ? vscode.window.createOutputChannel('Pain Language Server') : undefined,
+                    outputChannel: vscode.window.createOutputChannel('Pain Language Server')
+                };
+
+                client = new LanguageClient(
+                    'painLanguageServer',
+                    'Pain Language Server',
+                    serverOptions,
+                    clientOptions
+                );
+
+                // Start the client with timeout
+                const startPromise = client.start();
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('LSP start timeout after 10 seconds')), 10000);
+                });
+
+                Promise.race([startPromise, timeoutPromise])
+                    .then(() => {
+                        console.log('Pain Language Server is ready');
+                    })
+                    .catch((error) => {
+                        console.error('Failed to start Pain Language Server:', error);
+                        const errorMessage = error instanceof Error ? error.message : String(error);
+                        // Don't show error for NoWorkspaceUriError if no workspace is open (expected behavior)
+                        if (!errorMessage.includes('NoWorkspaceUriError') && !errorMessage.includes('timeout')) {
+                            if (workspaceFolders && workspaceFolders.length > 0) {
+                                vscode.window.showWarningMessage(`Pain LSP failed to start: ${errorMessage}. Syntax highlighting will still work.`);
+                            }
+                        }
+                        // Clean up failed client
+                        if (client) {
+                            client.stop().catch(() => {});
+                            client = undefined as any;
+                        }
+                    });
+            } catch (error) {
+                console.error('Failed to create Language Client:', error);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (workspaceFolders && workspaceFolders.length > 0) {
+                    vscode.window.showWarningMessage(`Failed to create Pain LSP client: ${errorMessage}. Syntax highlighting will still work.`);
+                }
+            }
+        } else {
+            console.warn('Pain LSP server not found. LSP features will be disabled. Configure pain.lsp.path in settings.');
+            // Continue without LSP - syntax highlighting and formatting will still work
         }
     } catch (error) {
         console.error('Error activating Pain extension:', error);
