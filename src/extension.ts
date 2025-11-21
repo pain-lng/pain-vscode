@@ -290,25 +290,18 @@ export function activate(context: vscode.ExtensionContext) {
                         lspCrashCount++;
                         console.warn(`LSP stopped unexpectedly (crash ${lspCrashCount})`);
                         
-                        if (lspCrashCount >= 3) {
+                        // Disable after first crash to prevent infinite loop
+                        if (lspCrashCount >= 1) {
                             lspDisabled = true;
                             vscode.window.showErrorMessage(
-                                'Pain LSP keeps crashing. It has been disabled. Check the Output panel for errors.',
+                                'Pain LSP crashed and has been disabled to prevent infinite restart loop. Check the Output panel for errors.',
                                 'Show Output'
                             ).then(choice => {
                                 if (choice === 'Show Output') {
                                     vscode.commands.executeCommand('workbench.action.output.toggleOutput');
                                 }
                             });
-                        } else if (lspCrashCount < 3) {
-                            // Try to restart after a delay
-                            console.log('Attempting to restart LSP in 2 seconds...');
-                            setTimeout(() => {
-                                if (client) {
-                                    client.stop().catch(() => {});
-                                }
-                                startLSP();
-                            }, 2000);
+                            return;
                         }
                     }
                 });
