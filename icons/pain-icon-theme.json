@@ -1,0 +1,15 @@
+{
+  "iconDefinitions": {
+    "pain": {
+      "iconPath": "./pain-file.png"
+    },
+    "pml": {
+      "iconPath": "./pml-file.png"
+    }
+  },
+  "fileExtensions": {
+    "pain": "pain",
+    "pml": "pml"
+  }
+}
+

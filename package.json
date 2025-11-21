@@ -1,7 +1,7 @@
 {
   "name": "pain-language",
   "displayName": "Pain Language",
-  "description": "Language support for Pain programming language - syntax highlighting, LSP integration, diagnostics, and more",
+  "description": "Language support for Pain programming language and PML (Pain Markup Language) - syntax highlighting, LSP integration, diagnostics, and more",
   "version": "0.2.0",
   "publisher": "pain-lng",
   "engines": {
@@ -12,10 +12,12 @@
   ],
   "keywords": [
     "pain",
+    "pml",
     "programming",
     "language",
     "lsp",
-    "syntax"
+    "syntax",
+    "markup"
   ],
   "repository": {
     "type": "git",
@@ -44,6 +46,18 @@
           ".pain"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "pml",
+        "aliases": [
+          "PML",
+          "pml",
+          "Pain Markup Language"
+        ],
+        "extensions": [
+          ".pml"
+        ],
+        "configuration": "./language-configuration-pml.json"
       }
     ],
     "documentFormattingEditProvider": {
@@ -65,6 +79,18 @@
         "language": "pain",
         "scopeName": "source.pain",
         "path": "./syntaxes/pain.tmLanguage.json"
+      },
+      {
+        "language": "pml",
+        "scopeName": "source.pml",
+        "path": "./syntaxes/pml.tmLanguage.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "pain-icons",
+        "label": "Pain Language Icons",
+        "path": "./icons/pain-icon-theme.json"
       }
     ],
     "configuration": {

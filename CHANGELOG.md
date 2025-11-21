@@ -5,6 +5,14 @@ All notable changes to the Pain Language VS Code Extension will be documented in
 ## [0.2.0] - 2024
 
 ### Added
+- **PML (Pain Markup Language) support**:
+  - Syntax highlighting for `.pml` files
+  - PML-specific language configuration (tab-based indentation, comments)
+  - Support for PML syntax: keys, values, lists, strings, numbers, booleans, null
+- **Custom file icons**:
+  - Custom icons for `.pain` files (blue gradient with "P")
+  - Custom icons for `.pml` files (green gradient with "PML")
+  - File icon theme "Pain Language Icons" automatically applied
 - Enhanced syntax highlighting with better support for:
   - Function and class definitions
   - Triple-quoted strings (doc comments)

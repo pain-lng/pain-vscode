@@ -4,7 +4,12 @@ VS Code extension for Pain programming language - a high-performance, Python-lik
 
 ## Features
 
-- ✅ **Syntax Highlighting** - Full syntax highlighting for Pain language
+- ✅ **Syntax Highlighting** - Full syntax highlighting for Pain language and PML (Pain Markup Language)
+- ✅ **Custom File Icons** - Beautiful custom icons for `.pain` and `.pml` files
+- ✅ **PML Support** - Syntax highlighting for `.pml` files with support for:
+  - Keys, values, lists, maps
+  - Strings (quoted and unquoted), numbers, booleans, null
+  - Comments and tab-based indentation
 - ✅ **LSP Integration** - Language Server Protocol support with:
   - Real-time diagnostics and error checking
   - Code completion with context awareness
@@ -81,13 +86,11 @@ The extension will automatically detect the LSP server in:
 
 ### Usage
 
-1. Open a `.pain` file
+1. Open a `.pain` or `.pml` file
 2. The extension will automatically:
    - Provide syntax highlighting
-   - Show diagnostics (errors and warnings)
-   - Offer code completion (Ctrl+Space)
-   - Display hover information (hover over functions)
-   - Format code on save (if enabled)
+   - For `.pain` files: Show diagnostics (errors and warnings), offer code completion (Ctrl+Space), display hover information (hover over functions), format code on save (if enabled)
+   - For `.pml` files: Provide syntax highlighting for PML markup
 
 ## Building and Packaging
 
