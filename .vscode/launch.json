@@ -6,7 +6,9 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}"
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extension",
+        "vscode.git"
       ],
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"

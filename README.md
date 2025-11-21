@@ -109,22 +109,6 @@ npm install -g @vscode/vsce
 # Compile TypeScript
 npm run compile
 
-# Package the extension
-vsce package
-```
-
-This creates a `.vsix` file that can be installed in VS Code or published to the marketplace.
-
-### Publish to Marketplace
-
-```bash
-# Login to Visual Studio Marketplace
-vsce login pain-lng
-
-# Publish
-vsce publish
-```
-
 ## Requirements
 
 - VS Code 1.75.0 or higher
