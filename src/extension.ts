@@ -320,27 +320,16 @@ export function activate(context: vscode.ExtensionContext) {
                     .catch((error) => {
                         console.error('Failed to start Pain Language Server:', error);
                         lspCrashCount++;
+                        lspDisabled = true;
                         
-                        if (lspCrashCount < 3) {
-                            console.log('Will retry LSP start in 2 seconds...');
-                            setTimeout(() => {
-                                if (client) {
-                                    client.stop().catch(() => {});
-                                    client = undefined;
-                                }
-                                startLSP();
-                            }, 2000);
-                        } else {
-                            lspDisabled = true;
-                            vscode.window.showErrorMessage(
-                                'Pain LSP failed to start multiple times and has been disabled.',
-                                'Show Output'
-                            ).then(choice => {
-                                if (choice === 'Show Output') {
-                                    vscode.commands.executeCommand('workbench.action.output.toggleOutput');
-                                }
-                            });
-                        }
+                        vscode.window.showErrorMessage(
+                            'Pain LSP failed to start and has been disabled. Check the Output panel for errors.',
+                            'Show Output'
+                        ).then(choice => {
+                            if (choice === 'Show Output') {
+                                vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+                            }
+                        });
                         
                         // Clean up failed client
                         if (client) {
@@ -351,12 +340,8 @@ export function activate(context: vscode.ExtensionContext) {
             } catch (error) {
                 console.error('Failed to create Language Client:', error);
                 lspCrashCount++;
-                if (lspCrashCount < 3) {
-                    setTimeout(() => startLSP(), 2000);
-                } else {
-                    lspDisabled = true;
-                    vscode.window.showErrorMessage('Pain LSP repeatedly failed to initialize and has been disabled.');
-                }
+                lspDisabled = true;
+                vscode.window.showErrorMessage('Pain LSP failed to initialize and has been disabled.');
             }
         };
 
