@@ -45,7 +45,11 @@
         "extensions": [
           ".pain"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/pain-file.png",
+          "dark": "./icons/pain-file.png"
+        }
       },
       {
         "id": "pml",
@@ -57,7 +61,11 @@
         "extensions": [
           ".pml"
         ],
-        "configuration": "./language-configuration-pml.json"
+        "configuration": "./language-configuration-pml.json",
+        "icon": {
+          "light": "./icons/pml-file.png",
+          "dark": "./icons/pml-file.png"
+        }
       }
     ],
     "documentFormattingEditProvider": {
@@ -84,13 +92,6 @@
         "language": "pml",
         "scopeName": "source.pml",
         "path": "./syntaxes/pml.tmLanguage.json"
-      }
-    ],
-    "iconThemes": [
-      {
-        "id": "pain-icons",
-        "label": "Pain Language Icons",
-        "path": "./icons/pain-icon-theme.json"
       }
     ],
     "configuration": {
