@@ -2,7 +2,7 @@
   "name": "pain-language",
   "displayName": "Pain Language",
   "description": "Language support for Pain programming language and PML (Pain Markup Language) - syntax highlighting, LSP integration, diagnostics, and more",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "pain-lng",
   "engines": {
     "vscode": "^1.75.0"

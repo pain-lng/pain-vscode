@@ -13,8 +13,10 @@ import {
     TransportKind
 } from 'vscode-languageclient/node';
 
-let client: LanguageClient;
+let client: LanguageClient | undefined;
 let isFormatting = false; // Prevent concurrent formatting calls
+let lspCrashCount = 0; // Track LSP crashes
+let lspDisabled = false; // Disable LSP after too many crashes
 
 export function activate(context: vscode.ExtensionContext) {
     try {
@@ -221,9 +223,18 @@ export function activate(context: vscode.ExtensionContext) {
         });
         context.subscriptions.push(formattingProvider);
 
-        // Only start LSP if binary exists or is explicitly configured
-        // Don't try to run 'pain-lsp' from PATH as it may not exist and cause hangs
-        if (lspPath && (fs.existsSync(lspPath) || path.isAbsolute(lspPath))) {
+        // Function to start LSP with crash protection
+        const startLSP = () => {
+            if (lspDisabled) {
+                console.warn('LSP disabled due to repeated crashes');
+                return;
+            }
+
+            if (!lspPath || (!fs.existsSync(lspPath) && !path.isAbsolute(lspPath))) {
+                console.warn('Pain LSP server not found. LSP features will be disabled. Configure pain.lsp.path in settings.');
+                return;
+            }
+
             try {
                 // Server options - run LSP server
                 const serverOptions: ServerOptions = {
@@ -239,13 +250,31 @@ export function activate(context: vscode.ExtensionContext) {
                 const clientOptions: LanguageClientOptions = {
                     documentSelector: [{ scheme: 'file', language: 'pain' }],
                     synchronize: {
-                        // Only create file watcher if workspace is available
                         fileEvents: workspaceFolders && workspaceFolders.length > 0
                             ? vscode.workspace.createFileSystemWatcher('**/*.pain')
                             : undefined
                     },
                     traceOutputChannel: trace !== 'off' ? vscode.window.createOutputChannel('Pain Language Server') : undefined,
-                    outputChannel: vscode.window.createOutputChannel('Pain Language Server')
+                    outputChannel: vscode.window.createOutputChannel('Pain Language Server'),
+                    // Increase timeout and reduce aggressive reconnection
+                    initializationFailedHandler: (error) => {
+                        lspCrashCount++;
+                        console.error(`LSP initialization failed (crash ${lspCrashCount}):`, error);
+                        
+                        if (lspCrashCount >= 3) {
+                            lspDisabled = true;
+                            vscode.window.showErrorMessage(
+                                'Pain LSP crashed too many times and has been disabled. Restart VS Code to re-enable.',
+                                'Restart'
+                            ).then(choice => {
+                                if (choice === 'Restart') {
+                                    vscode.commands.executeCommand('workbench.action.reloadWindow');
+                                }
+                            });
+                            return false; // Don't retry
+                        }
+                        return false; // Don't auto-retry, we'll handle it manually
+                    }
                 };
 
                 client = new LanguageClient(
@@ -255,42 +284,91 @@ export function activate(context: vscode.ExtensionContext) {
                     clientOptions
                 );
 
+                // Monitor client crashes
+                client.onDidChangeState((event) => {
+                    if (event.newState === 3) { // State.Stopped
+                        lspCrashCount++;
+                        console.warn(`LSP stopped unexpectedly (crash ${lspCrashCount})`);
+                        
+                        if (lspCrashCount >= 3) {
+                            lspDisabled = true;
+                            vscode.window.showErrorMessage(
+                                'Pain LSP keeps crashing. It has been disabled. Check the Output panel for errors.',
+                                'Show Output'
+                            ).then(choice => {
+                                if (choice === 'Show Output') {
+                                    vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+                                }
+                            });
+                        } else if (lspCrashCount < 3) {
+                            // Try to restart after a delay
+                            console.log('Attempting to restart LSP in 2 seconds...');
+                            setTimeout(() => {
+                                if (client) {
+                                    client.stop().catch(() => {});
+                                }
+                                startLSP();
+                            }, 2000);
+                        }
+                    }
+                });
+
                 // Start the client with timeout
                 const startPromise = client.start();
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('LSP start timeout after 10 seconds')), 10000);
+                const timeoutPromise = new Promise<void>((_, reject) => {
+                    setTimeout(() => reject(new Error('LSP start timeout after 5 seconds')), 5000);
                 });
 
                 Promise.race([startPromise, timeoutPromise])
                     .then(() => {
                         console.log('Pain Language Server is ready');
+                        lspCrashCount = 0; // Reset counter on successful start
                     })
                     .catch((error) => {
                         console.error('Failed to start Pain Language Server:', error);
-                        const errorMessage = error instanceof Error ? error.message : String(error);
-                        // Don't show error for NoWorkspaceUriError if no workspace is open (expected behavior)
-                        if (!errorMessage.includes('NoWorkspaceUriError') && !errorMessage.includes('timeout')) {
-                            if (workspaceFolders && workspaceFolders.length > 0) {
-                                vscode.window.showWarningMessage(`Pain LSP failed to start: ${errorMessage}. Syntax highlighting will still work.`);
-                            }
+                        lspCrashCount++;
+                        
+                        if (lspCrashCount < 3) {
+                            console.log('Will retry LSP start in 2 seconds...');
+                            setTimeout(() => {
+                                if (client) {
+                                    client.stop().catch(() => {});
+                                    client = undefined;
+                                }
+                                startLSP();
+                            }, 2000);
+                        } else {
+                            lspDisabled = true;
+                            vscode.window.showErrorMessage(
+                                'Pain LSP failed to start multiple times and has been disabled.',
+                                'Show Output'
+                            ).then(choice => {
+                                if (choice === 'Show Output') {
+                                    vscode.commands.executeCommand('workbench.action.output.toggleOutput');
+                                }
+                            });
                         }
+                        
                         // Clean up failed client
                         if (client) {
                             client.stop().catch(() => {});
-                            client = undefined as any;
+                            client = undefined;
                         }
                     });
             } catch (error) {
                 console.error('Failed to create Language Client:', error);
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                if (workspaceFolders && workspaceFolders.length > 0) {
-                    vscode.window.showWarningMessage(`Failed to create Pain LSP client: ${errorMessage}. Syntax highlighting will still work.`);
+                lspCrashCount++;
+                if (lspCrashCount < 3) {
+                    setTimeout(() => startLSP(), 2000);
+                } else {
+                    lspDisabled = true;
+                    vscode.window.showErrorMessage('Pain LSP repeatedly failed to initialize and has been disabled.');
                 }
             }
-        } else {
-            console.warn('Pain LSP server not found. LSP features will be disabled. Configure pain.lsp.path in settings.');
-            // Continue without LSP - syntax highlighting and formatting will still work
-        }
+        };
+
+        // Start LSP
+        startLSP();
     } catch (error) {
         console.error('Error activating Pain extension:', error);
         vscode.window.showErrorMessage(`Error activating Pain extension: ${error instanceof Error ? error.message : String(error)}`);
